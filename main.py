@@ -25,7 +25,7 @@ parser.add_argument('--resume', action='store_true', default=False,
                     help='resume from latest checkpoint')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
-parser.add_argument('--print-interval', type=int, default=100, metavar=N,
+parser.add_argument('--print-interval', type=int, default=100, metavar='N',
 					help='interval at which to print training loss')
 
 args = parser.parse_args()
@@ -58,13 +58,13 @@ test_transforms = transforms.Compose([
 
 # The images are located in {train/val/test}/{style}/*.jpg
 train_dataset = datasets.ImageFolder(args.folder_name+"/train", train_transforms)
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=true, **kwargs)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
 val_dataset = datasets.ImageFolder(args.folder_name+"/val", test_transforms)
-val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=true, **kwargs)
+val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
 test_dataset = datasets.ImageFolder(args.folder_name+"/test", test_transforms)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=true, **kwargs)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
 # Create a V1.1 Squeezenet
 model = SqueezeNet(version=1.1, num_classes=NUM_CLASSES)
