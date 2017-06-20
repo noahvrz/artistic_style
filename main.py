@@ -21,10 +21,15 @@ parser.add_argument('--lr', type=float, default=0.0001, metavar='LR',
                     help='learning rate (default: 0.0001)')
 parser.add_argument('--cuda', action='store_true', default=False,
                     help='enables CUDA training')
+parser.add_argument('--resume', action='store_true', default=False,
+                    help='resume from latest checkpoint')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
+parser.add_argument('--print-interval', type=int, default=100, metavar=N,
+					help='interval at which to print training loss')
 
 args = parser.parse_args()
+args.cuda = args.cuda and torch.cuda.is_available()
 
 torch.manual_seed(args.seed)
 if args.cuda:
@@ -80,7 +85,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 def train(epoch):
 	model.train()
 
-	for batch_num, (image, style) in enumerate(train_loader):
+	for i, (image, style) in enumerate(train_loader):
 
 		if args.cuda:
 			image, style = image.cuda(), style.cuda()
@@ -93,8 +98,9 @@ def train(epoch):
 		loss.backward()
 		optimizer.step()
 
-		if batch_num % 100 == 0:
-			print("[{}][{}] Training loss: {}".format(epoch, batch_num, loss.data[0]))
+		if i % args.print_interval == 0:
+			print("[Epoch {}][Batch {}/{}]	Training loss: {}".format(
+				epoch, i, len(train_loader), loss.data[0]))
 
 def val(epoch):
 	
@@ -118,8 +124,34 @@ def val(epoch):
 	loss /= len(val_loader)
 	accuracy = num_correct / len(val_dataset)
 
-	print("[{}] Average Testing Loss: {}, Accuracy: {}%".format(epoch, loss, 100*accuracy))
+	print("[Epoch {}]	Average Testing Loss: {}, Accuracy: {}%".format(
+		epoch, loss, 100*accuracy))
 
-for epoch in range(1, args.epochs + 1):
+	return accuracy
+
+best_accuracy = 0
+start_epoch = 0
+
+if args.resume:
+	save = torch.load('checkpoint.pth')
+	start_epoch = save['epoch']
+	best_accuracy = save['best_accuracy']
+
+	model.load_state_dict(save['model'])
+	optimizer.load_state_dict(save['optimizer'])
+
+for epoch in range(start_epoch, args.epochs + 1):
     train(epoch)
-    test(epoch)
+    accuracy = test(epoch)
+
+    save = {
+    	'epoch': epoch,
+    	'best_accuracy': best_accuracy,
+    	'model': model.state_dict(),
+    	'optimizer': optimizer.state_dict()
+    }
+
+    torch.save(save, 'checkpoint.pth')
+
+    if accuracy > best_accuracy:
+    	torch.save(save, 'best.pth')
