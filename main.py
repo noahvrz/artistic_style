@@ -81,6 +81,10 @@ if args.cuda:
 	model = model.cuda()
 
 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+loss_function = nn.CrossEntropyLoss()
+
+if args.cuda:
+	loss_function = loss_function.cuda()
 
 def train(epoch):
 	model.train()
@@ -94,7 +98,7 @@ def train(epoch):
 
 		optimizer.zero_grad()
 		guess = model(image)
-		loss = nn.functional.CrossEntropyLoss(guess, style)
+		loss = loss_function(guess, style)
 		loss.backward()
 		optimizer.step()
 
@@ -116,7 +120,7 @@ def val(epoch):
 		image, style = Variable(image), Variable(style)
 
 		guess = model(image)
-		loss += nn.functional.CrossEntropyLoss(guess, style)
+		loss += loss_function(guess, style)
 		
 		prediction = guess.data.max(1)[1]
 		num_correct += prediction.eq(style.data).cpu().sum()
@@ -130,7 +134,7 @@ def val(epoch):
 	return accuracy
 
 best_accuracy = 0
-start_epoch = 0
+start_epoch = 1
 
 if args.resume:
 	save = torch.load('checkpoint.pth')
@@ -142,7 +146,7 @@ if args.resume:
 
 for epoch in range(start_epoch, args.epochs + 1):
     train(epoch)
-    accuracy = test(epoch)
+    accuracy = val(epoch)
 
     save = {
     	'epoch': epoch,
