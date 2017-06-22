@@ -72,7 +72,7 @@ def worker(rank, args, model, start_epoch=1, best_accuracy=0):
 
 	for epoch in range(start_epoch, args.epochs + 1):
 	    train(epoch, args, model, train_loader, optimizer, loss_function)
-	    accuracy = val(epoch, val_loader)
+	    accuracy = val(epoch, val_loader, loss_function)
 
 	    if rank == 0:
 		    save = {
@@ -106,7 +106,7 @@ def train(epoch, args, model, train_loader, optimizer, loss_function):
 			print("[Process {}][Epoch {}][Batch {}/{}]	Training loss: {}".format(
 				pid, epoch, i, len(train_loader), loss.data[0]))
 
-def val(epoch, val_loader):
+def val(epoch, val_loader, loss_function):
 	
 	model.eval()
 
