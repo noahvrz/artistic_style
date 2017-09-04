@@ -1,3 +1,10 @@
+# Run files
+hpc.*
+*.sh
+
+# Model Snapshots
+*.pth
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

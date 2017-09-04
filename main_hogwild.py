@@ -1,6 +1,8 @@
 import argparse
 
 import os
+import sys
+
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -13,8 +15,8 @@ INPUT_SIZE = 224
 NUM_CLASSES = 25
 
 parser = argparse.ArgumentParser(description='Image Recognition using Neural Networks')
-parser.add_argument('--batch-size', type=int, default=20, metavar='N',
-					help='batch size for training (default: 20)')
+parser.add_argument('--batch-size', type=int, default=50, metavar='N',
+					help='batch size for training (default: 50)')
 parser.add_argument('--num-processes', type=int, default=16, metavar='N',
 					help='number of concurrent processes (default: 16)')
 parser.add_argument('--folder-name', default='/mnt/research/gis/users/nverzani/ML/art_images', metavar='F',
@@ -31,67 +33,80 @@ parser.add_argument('--print-interval', type=int, default=100, metavar='N',
 					help='interval at which to print training loss')
 
 def worker(rank, args, model, start_epoch=1, best_accuracy=0):
+
 	print(r)
-	torch.manual_seed(args.seed + rank)
 
-	# When testing, do some slight random scales and crops.
-	# Normalize in the same way as the pre-trained Squeezenet.
-	train_transforms = transforms.Compose([
-		transforms.RandomSizedCrop(INPUT_SIZE),
-		transforms.RandomHorizontalFlip(),
-	    transforms.ToTensor(),
-	    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-	                         std=[0.229, 0.224, 0.225])
-	])
+	# torch.manual_seed(args.seed + rank)
 
-	# When testing and validating, just use center crop
-	test_transforms = transforms.Compose([
-		transforms.Scale(INPUT_SIZE),
-		transforms.CenterCrop(256),
-		transforms.ToTensor(),
-		transforms.Normalize(mean=[0.485, 0.456, 0.406],
-	                         std=[0.229, 0.224, 0.225])
-	])
+	# # When testing, do some slight random scales and crops.
+	# # Normalize in the same way as the pre-trained Squeezenet.
+	# train_transforms = transforms.Compose([
+	# 	transforms.RandomSizedCrop(INPUT_SIZE),
+	# 	transforms.RandomHorizontalFlip(),
+	#     transforms.ToTensor(),
+	#     transforms.Normalize(mean=[0.485, 0.456, 0.406],
+	#                          std=[0.229, 0.224, 0.225])
+	# ])
 
-	# The images are located in {train/val/test}/{style}/*.jpg
-	train_dataset = datasets.ImageFolder(args.folder_name+"/train", train_transforms)
-	train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+	# # When testing and validating, just use center crop
+	# test_transforms = transforms.Compose([
+	# 	transforms.Scale(INPUT_SIZE),
+	# 	transforms.CenterCrop(256),
+	# 	transforms.ToTensor(),
+	# 	transforms.Normalize(mean=[0.485, 0.456, 0.406],
+	#                          std=[0.229, 0.224, 0.225])
+	# ])
 
-	val_dataset = datasets.ImageFolder(args.folder_name+"/val", test_transforms)
-	val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
+	# # The images are located in {train/val/test}/{style}/*.jpg
+	# train_dataset = datasets.ImageFolder(args.folder_name+"/train", train_transforms)
+	# train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
-	# test_dataset = datasets.ImageFolder(args.folder_name+"/test", test_transforms)
-	# test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
+	# val_dataset = datasets.ImageFolder(args.folder_name+"/val", test_transforms)
+	# val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
 
-	optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-	loss_function = nn.CrossEntropyLoss()
+	# # test_dataset = datasets.ImageFolder(args.folder_name+"/test", test_transforms)
+	# # test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
 
-	if args.resume:
-		save = torch.load('checkpoint.pth')
-		optimizer.load_state_dict(save['optimizer'])
+	# # Use the Adam optimizer and cross entropy loss functions
+	# optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+	# loss_function = nn.CrossEntropyLoss()
 
-	for epoch in range(start_epoch, args.epochs + 1):
-	    train(epoch, args, model, train_loader, optimizer, loss_function)
-	    accuracy = val(epoch, val_loader, loss_function)
+	# # If we want to resume, load optimizer from checkpoint
+	# if args.resume:
+	# 	save = torch.load('checkpoint.pth')
+	# 	optimizer.load_state_dict(save['optimizer'])
 
-	    if rank == 0:
-		    save = {
-		    	'epoch': epoch,
-		    	'best_accuracy': best_accuracy,
-		    	'model': model.state_dict(),
-		    	'optimizer': optimizer.state_dict()
-		    }
+	# # In each epoch, train and then validate
+	# for epoch in range(start_epoch, args.epochs + 1):
+	#     train(epoch, args, model, train_loader, optimizer, loss_function)
+	#     accuracy = val(epoch, val_loader, loss_function, len(val_dataset))
+	#     accuracy = -1
 
-		    torch.save(save, 'checkpoint.pth')
+	#     # After each epoch, one process will save a checkpoint
+	#     if rank == 0:
+	# 	    save = {
+	# 	    	'epoch': epoch,
+	# 	    	'best_accuracy': best_accuracy,
+	# 	    	'model': model.state_dict(),
+	# 	    	'optimizer': optimizer.state_dict()
+	# 	    }
 
-		    if accuracy > best_accuracy:
-		    	torch.save(save, 'best.pth')
+	# 	    torch.save(save, 'checkpoint.pth')
+	# 	    torch.save(save, 'checkpoint_{}.pth'.format(epoch))
+
+	# 	    # If this checkpoint was the most accurate, save it seperately too
+	# 	    if accuracy > best_accuracy:
+	# 	    	torch.save(save, 'best.pth')
 
 
 def train(epoch, args, model, train_loader, optimizer, loss_function):
+	
+	# Put the model in train mode
 	model.train()
+	
 	pid = os.getpid()
 
+	# Loop through all the training batches
 	for i, (image, style) in enumerate(train_loader):
 
 		image, style = Variable(image), Variable(style)
@@ -106,7 +121,7 @@ def train(epoch, args, model, train_loader, optimizer, loss_function):
 			print("[Process {}][Epoch {}][Batch {}/{}]	Training loss: {}".format(
 				pid, epoch, i, len(train_loader), loss.data[0]))
 
-def val(epoch, val_loader, loss_function):
+def val(epoch, val_loader, loss_function, length):
 	
 	model.eval()
 
@@ -123,19 +138,18 @@ def val(epoch, val_loader, loss_function):
 		num_correct += prediction.eq(style.data).cpu().sum()
 
 	loss /= len(val_loader)
-	accuracy = num_correct / len(val_dataset)
+	accuracy = num_correct / length
 
 	print("[Epoch {}]	Average Testing Loss: {}, Accuracy: {}%".format(
-		epoch, loss, 100*accuracy))
+		epoch, loss.data[0], 100*accuracy))
 
 	return accuracy
+	return -1
 
 if __name__ == '__main__':
 
 	args = parser.parse_args()
 	
-	#os.environ['OMP_NUM_THREADS'] = '1'
-
 	torch.manual_seed(args.seed)
 
 	# Create a V1.1 Squeezenet, share its memory
@@ -154,7 +168,7 @@ if __name__ == '__main__':
 
 		worker_args += (start_epoch, best_accuracy,)
 	else:
-		# Download a pretrained model, replace the last layer with a newly initialized one
+		# Download a pretrained model, replace the last layer with the newly initialized one
 		state_dict = torch.utils.model_zoo.load_url(model_urls['squeezenet1_1'])
 		state_dict['classifier.1.weight'] = model.state_dict()['classifier.1.weight']
 		state_dict['classifier.1.bias'] = model.state_dict()['classifier.1.bias']

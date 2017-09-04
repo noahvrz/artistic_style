@@ -1,1 +1,1 @@
-hpcsub -l gpuk20=1 -cmd python main.py --cuda
+hpcsub -l gpup100=1 -cmd python main.py --cuda
