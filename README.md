@@ -4,8 +4,6 @@ Uses transfer learning on an optimized convolutional SqueezeNet applied to data 
 
 Built for a Machine Learning course at Oxford University.
 
-# TODO:
+### TODO:
 - Add ability to use multiple architectures, not just SqueezeNet
 - Add CUDNN benchmarking
-- Fix OS operations using os.path
-- Fix memory error (pin_memory?) - seems to be somewhere in val
