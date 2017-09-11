@@ -4,6 +4,10 @@ Uses transfer learning on an optimized convolutional SqueezeNet applied to data 
 
 Built for a Machine Learning course at Oxford University.
 
+![Accuracy vs. Epoch](accuracy.png)
+![Loss vs. Epoch](loss.png)
+
+
 ### TODO:
 - Add ability to use multiple architectures, not just SqueezeNet
 - Add CUDNN benchmarking
