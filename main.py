@@ -5,12 +5,14 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-from torchvision import datasets, models, transforms
+from torchvision import datasets, transforms
 from torchvision.models.squeezenet import SqueezeNet, model_urls
+
+import matplotlib.pyplot as plt
 
 INPUT_SIZE = 224
 
-parser = argparse.ArgumentParser(description='Image Recognition using Neural Networks')
+parser = argparse.ArgumentParser(description='Artistic style detection using a SqeezeNet neural network.')
 parser.add_argument('--batch-size', type=int, default=20,
 					help='batch size for training (default: 20)')
 parser.add_argument('--folder', default='/mnt/research/gis/users/nverzani/ML/art_images',
@@ -18,17 +20,17 @@ parser.add_argument('--folder', default='/mnt/research/gis/users/nverzani/ML/art
 parser.add_argument('--num-classes', type=int, default=25,
 					help='number of target classes (default: 25)')
 parser.add_argument('--epochs', type=int, default=30,
-                    help='number of epochs to train (default: 30)')
+					help='number of epochs to train (default: 30)')
 parser.add_argument('--lr', type=float, default=0.0001,
-                    help='learning rate (default: 0.0001)')
+					help='learning rate (default: 0.0001)')
 parser.add_argument('--nocuda', action='store_true', default=False,
-                    help='disables CUDA training')
+					help='disables CUDA training')
 parser.add_argument('--resume', action='store_true', default=False,
-                    help='resume from latest checkpoint')
+					help='resume from latest checkpoint')
 parser.add_argument('--print-interval', type=int, default=100,
 					help='interval at which to print training loss')
 parser.add_argument('--validate', action='store_true', default=False,
-                    help='test model on validation set')
+					help='just test model on validation set')
 
 args = parser.parse_args()
 
@@ -46,9 +48,9 @@ if not args.nocuda and not torch.cuda.is_available():
 train_transforms = transforms.Compose([
 	transforms.RandomSizedCrop(INPUT_SIZE),
 	transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
+	transforms.ToTensor(),
+	transforms.Normalize(mean=[0.485, 0.456, 0.406],
+						 std=[0.229, 0.224, 0.225])
 ])
 
 # When testing and validating, just use center crop
@@ -57,7 +59,7 @@ test_transforms = transforms.Compose([
 	transforms.CenterCrop(INPUT_SIZE),
 	transforms.ToTensor(),
 	transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
+						 std=[0.229, 0.224, 0.225])
 ])
 
 # Additional arguments for CUDA support
@@ -133,40 +135,75 @@ def val(epoch):
 	loss /= len(val_loader)
 	accuracy = num_correct / len(val_dataset)
 
-	print("[Epoch {}]	Average Testing Loss: {}, Accuracy: {:.2}%".format(
+	print("[Epoch {}]	Average Testing Loss: {}, Accuracy: {:.2f}%".format(
 		epoch, loss, 100*accuracy))
 
-	return accuracy
+	return loss, accuracy
 
 best_accuracy = 0
 start_epoch = 1
 
+epochs = []
+losses = []
+accuracies = []
+
 # If we want to resume from the last checkpoint, load its information
 if args.resume:
 	save = torch.load('checkpoint.pth')
-	start_epoch = save['epoch']
+	start_epoch = save['epoch'] + 1
 	best_accuracy = save['best_accuracy']
+
+	epochs = save['epochs']
+	losses = save['losses']
+	accuracies = save['accuracies']
 
 	model.load_state_dict(save['model'])
 	optimizer.load_state_dict(save['optimizer'])
 
 if args.validate:
 	val(0)
+	raise SystemExit
 
 # Train and validate epochs until we reach the maximum
 for epoch in range(start_epoch, args.epochs + 1):
-    train(epoch)
-    accuracy = val(epoch)
+	train(epoch)
+	loss, accuracy = val(epoch)
 
-    # Save a checkpoint after every epoch
-    save = {
-    	'epoch': epoch,
-    	'best_accuracy': best_accuracy,
-    	'model': model.state_dict(),
-    	'optimizer': optimizer.state_dict()
-    }
-    torch.save(save, 'checkpoint.pth')
+	epochs.append(epoch)
+	losses.append(loss)
+	accuracies.append(accuracy)
 
-    # Save it seperately if it has the best accuracy
-    if accuracy > best_accuracy:
-    	torch.save(save, 'best.pth')
+	# Save a checkpoint after every epoch
+	save = {
+		'epoch': epoch,
+		'best_accuracy': best_accuracy,
+		'model': model.state_dict(),
+		'optimizer': optimizer.state_dict(),
+		'epochs': epochs,
+		'losses': losses,
+		'accuracies': accuracies
+	}
+	torch.save(save, 'checkpoint.pth')
+
+	# Save it seperately if it has the best accuracy
+	if accuracy > best_accuracy:
+		torch.save(save, 'best.pth')
+
+# After training, plot losses and accuracies
+plt.switch_backend('agg')
+
+plt.plot(epochs, losses)
+plt.xlim(xmin=0)
+plt.xlabel('Epochs')
+plt.ylabel('Validation Loss')
+plt.title('Validation Loss During Training')
+plt.savefig('loss.png', dpi=300)
+plt.clf()
+
+plt.plot(epochs, accuracies)
+plt.ylim(ymin=0)
+plt.xlim(xmin=0)
+plt.xlabel('Epochs')
+plt.ylabel('Validation Accuracy')
+plt.title('Validation Accuracy During Training')
+plt.savefig('accuracy.png', dpi=300)

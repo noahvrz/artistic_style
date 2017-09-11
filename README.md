@@ -7,3 +7,4 @@ Built for a Machine Learning course at Oxford University.
 ### TODO:
 - Add ability to use multiple architectures, not just SqueezeNet
 - Add CUDNN benchmarking
+- Add ability to properly disable CUDA (try import?)
